@@ -2,7 +2,7 @@
 
 ![Ralph](ralph.webp)
 
-Ralph is an autonomous AI agent loop that runs AI coding tools ([Amp](https://ampcode.com), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), or [LM Studio](https://lmstudio.ai/docs/python/agent/act)) repeatedly until all PRD items are complete. Each iteration is a fresh instance with clean context. Memory persists via git history, `progress.txt`, and `prd.json`.
+Ralph is an autonomous AI agent loop that runs AI coding tools ([Amp](https://ampcode.com), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex CLI](https://developers.openai.com/codex/cli), or [LM Studio](https://lmstudio.ai/docs/python/agent/act)) repeatedly until all PRD items are complete. Each iteration is a fresh instance with clean context. Memory persists via git history, `progress.txt`, and `prd.json`.
 
 Based on [Geoffrey Huntley's Ralph pattern](https://ghuntley.com/ralph/).
 
@@ -13,6 +13,7 @@ Based on [Geoffrey Huntley's Ralph pattern](https://ghuntley.com/ralph/).
 - One of the following AI coding tools installed and authenticated:
   - [Amp CLI](https://ampcode.com) (default)
   - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`npm install -g @anthropic-ai/claude-code`)
+  - [Codex CLI](https://developers.openai.com/codex/cli)
   - [LM Studio](https://lmstudio.ai/) with the Python SDK (`pip install -r requirements.txt`)
 - `jq` installed (`brew install jq` on macOS)
 - A git repository for your project
@@ -33,7 +34,11 @@ cp /path/to/ralph/prompt.md scripts/ralph/prompt.md    # For Amp
 # OR
 cp /path/to/ralph/CLAUDE.md scripts/ralph/CLAUDE.md    # For Claude Code
 # OR
+cp /path/to/ralph/CODEX.md scripts/ralph/CODEX.md      # For Codex CLI
+# OR
 cp /path/to/ralph/LMSTUDIO.md scripts/ralph/LMSTUDIO.md        # For LM Studio
+
+# For LM Studio, also copy the runner files:
 cp /path/to/ralph/lmstudio_agent.py scripts/ralph/
 cp /path/to/ralph/requirements.txt scripts/ralph/
 
@@ -113,6 +118,23 @@ export LMSTUDIO_HOST="localhost:1234"
 
 The LM Studio runner uses `model.act(...)` with local tools for directory listing, file reads/writes, exact replacements, appends, and shell commands. The model you choose needs reliable tool-calling behavior; LM Studio's docs recommend using a capable instruct model and note that larger models generally perform better for tool use.
 
+The PRD skill is loaded by default for LM Studio from `skills/prd/SKILL.md`. LM Studio does not have a global skills or marketplace install flow, so Ralph injects the skill guidance through `lmstudio_agent.py` and only activates it for PRD planning requests.
+
+### Configure Codex CLI
+
+Install and authenticate Codex CLI, then run Ralph with `--tool codex`:
+
+```bash
+./ralph.sh --tool codex 10
+```
+
+Ralph runs Codex through `codex exec` from the project root and passes `RALPH_DIR` so Codex can find `prd.json` and `progress.txt`. Set `CODEX_MODEL` or `CODEX_PROFILE` to override the default Codex model or config profile:
+
+```bash
+export CODEX_MODEL="gpt-5.4"
+export CODEX_PROFILE="ralph"
+```
+
 ## Workflow
 
 ### 1. Create a PRD
@@ -144,11 +166,14 @@ This creates `prd.json` with user stories structured for autonomous execution.
 # Using Claude Code
 ./scripts/ralph/ralph.sh --tool claude [max_iterations]
 
+# Using Codex CLI
+./scripts/ralph/ralph.sh --tool codex [max_iterations]
+
 # Using LM Studio
 ./scripts/ralph/ralph.sh --tool lmstudio [max_iterations]
 ```
 
-Default is 10 iterations. Use `--tool amp`, `--tool claude`, or `--tool lmstudio` to select your AI coding tool.
+Default is 10 iterations. Use `--tool amp`, `--tool claude`, `--tool codex`, or `--tool lmstudio` to select your AI coding tool.
 
 Ralph will:
 1. Create a feature branch (from PRD `branchName`)
@@ -164,16 +189,17 @@ Ralph will:
 
 | File | Purpose |
 |------|---------|
-| `ralph.sh` | The bash loop that spawns fresh AI instances (supports `--tool amp`, `--tool claude`, or `--tool lmstudio`) |
+| `ralph.sh` | The bash loop that spawns fresh AI instances (supports `--tool amp`, `--tool claude`, `--tool codex`, or `--tool lmstudio`) |
 | `prompt.md` | Prompt template for Amp |
 | `CLAUDE.md` | Prompt template for Claude Code |
+| `CODEX.md` | Prompt template for Codex CLI |
 | `LMSTUDIO.md` | Prompt template for LM Studio |
 | `lmstudio_agent.py` | Python SDK runner that calls LM Studio `.act()` with local tools |
 | `requirements.txt` | Python dependency list for the LM Studio runner |
 | `prd.json` | User stories with `passes` status (the task list) |
 | `prd.json.example` | Example PRD format for reference |
 | `progress.txt` | Append-only learnings for future iterations |
-| `skills/prd/` | Skill for generating PRDs (works with Amp and Claude Code) |
+| `skills/prd/` | Skill for generating PRDs (works with Amp, Claude Code, and LM Studio through `lmstudio_agent.py`) |
 | `skills/ralph/` | Skill for converting PRDs to JSON (works with Amp and Claude Code) |
 | `.claude-plugin/` | Plugin manifest for Claude Code marketplace discovery |
 | `flowchart/` | Interactive visualization of how Ralph works |
@@ -196,7 +222,7 @@ npm run dev
 
 ### Each Iteration = Fresh Context
 
-Each iteration spawns a **new AI instance** (Amp, Claude Code, or LM Studio) with clean context. The only memory between iterations is:
+Each iteration spawns a **new AI instance** (Amp, Claude Code, Codex CLI, or LM Studio) with clean context. The only memory between iterations is:
 - Git history (commits from previous iterations)
 - `progress.txt` (learnings and context)
 - `prd.json` (which stories are done)
@@ -257,7 +283,7 @@ git log --oneline -10
 
 ## Customizing the Prompt
 
-After copying `prompt.md` (for Amp), `CLAUDE.md` (for Claude Code), or `LMSTUDIO.md` (for LM Studio) to your project, customize it for your project:
+After copying `prompt.md` (for Amp), `CLAUDE.md` (for Claude Code), `CODEX.md` (for Codex CLI), or `LMSTUDIO.md` (for LM Studio) to your project, customize it for your project:
 - Add project-specific quality check commands
 - Include codebase conventions
 - Add common gotchas for your stack
@@ -271,5 +297,6 @@ Ralph automatically archives previous runs when you start a new feature (differe
 - [Geoffrey Huntley's Ralph article](https://ghuntley.com/ralph/)
 - [Amp documentation](https://ampcode.com/manual)
 - [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code)
+- [Codex CLI documentation](https://developers.openai.com/codex/cli)
 - [LM Studio Python `.act()` documentation](https://lmstudio.ai/docs/python/agent/act)
 - [LM Studio Python tool definition documentation](https://lmstudio.ai/docs/python/agent/tools)

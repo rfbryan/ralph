@@ -1,6 +1,6 @@
 #!/bin/bash
 # Ralph Wiggum - Long-running AI agent loop
-# Usage: ./ralph.sh [--tool amp|claude|lmstudio] [max_iterations]
+# Usage: ./ralph.sh [--tool amp|claude|codex|lmstudio] [max_iterations]
 
 set -e
 
@@ -29,8 +29,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate tool choice
-if [[ "$TOOL" != "amp" && "$TOOL" != "claude" && "$TOOL" != "lmstudio" ]]; then
-  echo "Error: Invalid tool '$TOOL'. Must be 'amp', 'claude', or 'lmstudio'."
+if [[ "$TOOL" != "amp" && "$TOOL" != "claude" && "$TOOL" != "codex" && "$TOOL" != "lmstudio" ]]; then
+  echo "Error: Invalid tool '$TOOL'. Must be 'amp', 'claude', 'codex', or 'lmstudio'."
   exit 1
 fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -93,6 +93,16 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   elif [[ "$TOOL" == "claude" ]]; then
     # Claude Code: use --dangerously-skip-permissions for autonomous operation, --print for output
     OUTPUT=$(claude --dangerously-skip-permissions --print < "$SCRIPT_DIR/CLAUDE.md" 2>&1 | tee /dev/stderr) || true
+  elif [[ "$TOOL" == "codex" ]]; then
+    # Codex CLI: run non-interactively from the caller's project root.
+    CODEX_ARGS=(exec --cd "$PWD" --dangerously-bypass-approvals-and-sandbox)
+    if [[ -n "${CODEX_MODEL:-}" ]]; then
+      CODEX_ARGS+=(--model "$CODEX_MODEL")
+    fi
+    if [[ -n "${CODEX_PROFILE:-}" ]]; then
+      CODEX_ARGS+=(--profile "$CODEX_PROFILE")
+    fi
+    OUTPUT=$(RALPH_DIR="$SCRIPT_DIR" codex "${CODEX_ARGS[@]}" - < "$SCRIPT_DIR/CODEX.md" 2>&1 | tee /dev/stderr) || true
   else
     # LM Studio: use the Python SDK .act() API with local file and shell tools.
     OUTPUT=$(python "$SCRIPT_DIR/lmstudio_agent.py" --script-dir "$SCRIPT_DIR" 2>&1 | tee /dev/stderr) || true

@@ -153,9 +153,44 @@ def _print_round_start(round_index: int) -> None:
     print(f"\n[LM Studio round {round_index + 1}]", file=sys.stderr, flush=True)
 
 
+def _load_default_skills(script_dir: Path) -> str:
+    skill_paths = [
+        ("prd", script_dir / "skills" / "prd" / "SKILL.md"),
+    ]
+    skill_blocks = []
+    for skill_name, skill_path in skill_paths:
+        if skill_path.exists():
+            skill_content = skill_path.read_text(encoding="utf-8")
+            skill_blocks.append(
+                f"### Skill: {skill_name}\n\n"
+                "```markdown\n"
+                f"{skill_content.rstrip()}\n"
+                "```"
+            )
+
+    if not skill_blocks:
+        return ""
+
+    return f"""
+## Default Skills
+
+The following skill instructions are available by default. Use a skill only when the
+current user task clearly matches the skill description or explicitly asks for it.
+If a skill conflicts with the main task above, the main task above wins.
+
+{chr(10).join(skill_blocks)}
+
+Reminder: for a normal Ralph implementation iteration, follow `## Your Task` above.
+Do not use the PRD skill's "do not implement" workflow unless the user specifically
+asked to create or plan a PRD.
+"""
+
+
 def _load_prompt(prompt_path: Path, script_dir: Path) -> str:
     prompt = prompt_path.read_text(encoding="utf-8")
+    default_skills = _load_default_skills(script_dir)
     return f"""{prompt}
+{default_skills}
 
 ## Runtime Context
 
