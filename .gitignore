@@ -9,5 +9,10 @@ progress.txt
 # OS files
 .DS_Store
 
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
 #Claude
 .claude/
